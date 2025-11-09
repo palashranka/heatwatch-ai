@@ -1,0 +1,22 @@
+# Node
+node_modules/
+dist/
+.env
+*.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env/
+models/*.pkl
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Other
+*.csv
+*.json
