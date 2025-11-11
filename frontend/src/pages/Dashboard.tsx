@@ -34,8 +34,10 @@ import {
   Droplets,
   Users,
   MapPin,
+  CheckCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   MapContainer,
   TileLayer,
@@ -69,6 +71,9 @@ const ZoomToZone = ({ zone }: { zone: RiskArea | null }) => {
 };
 
 const Dashboard = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [riskMap, setRiskMap] = useState<RiskArea[]>([]);
   const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
   const [selectedZone, setSelectedZone] = useState<RiskArea | null>(null);
@@ -79,11 +84,20 @@ const Dashboard = () => {
   const [searchPincode, setSearchPincode] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchSuccess, setSearchSuccess] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    if (searchQuery && riskMap.length > 0) {
+      performSearch(searchQuery);
+      setSearchParams({});
+    }
+  }, [searchParams, riskMap]);
 
   useEffect(() => {
     if (forecastDays === 5) loadForecast();
@@ -103,6 +117,7 @@ const Dashboard = () => {
       ]);
       setRiskMap(riskMapData.risk_map);
       setStatistics(statsData);
+
       const highRiskZone =
         riskMapData.risk_map.find((z) => z.risk_level >= 2) ||
         riskMapData.risk_map[0];
@@ -125,14 +140,10 @@ const Dashboard = () => {
 
   const loadPincodeDetails = async (pincode: number) => {
     try {
-      console.log("Loading details for pincode:", pincode);
       const details = await getPincodeDetails(pincode);
-      console.log("Pincode details loaded:", details);
       setSelectedPincodeDetails(details);
     } catch (err) {
       console.error("Pincode details error:", err);
-      setError("Failed to load forecast data");
-      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -143,18 +154,13 @@ const Dashboard = () => {
     setRefreshing(false);
   };
 
-  const handleSearch = () => {
-    const pincode = parseInt(searchPincode.trim());
-
-    if (!searchPincode.trim()) {
-      setError("Please enter a pincode");
-      setTimeout(() => setError(null), 2000);
-      return;
-    }
+  const performSearch = (pincodeStr: string) => {
+    const pincode = parseInt(pincodeStr.trim());
 
     if (isNaN(pincode)) {
       setError("Please enter a valid pincode number");
-      setTimeout(() => setError(null), 2000);
+      setSearchSuccess(false);
+      setTimeout(() => setError(null), 3000);
       return;
     }
 
@@ -164,17 +170,32 @@ const Dashboard = () => {
       setSelectedZone(zone);
       setSearchPincode("");
       setError(null);
+      setSearchSuccess(true);
 
-      if (window.innerWidth < 1024) {
-        document.querySelector(".leaflet-container")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }
+      setTimeout(() => setSearchSuccess(false), 3000);
+
+      setTimeout(() => {
+        if (window.innerWidth < 1024) {
+          document.querySelector(".leaflet-container")?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      }, 100);
     } else {
-      setError(`Pincode ${pincode} not found in monitored areas`);
-      setTimeout(() => setError(null), 3000);
+      setError(`Pincode ${pincode} not found. `);
+      setSearchSuccess(false);
+      setTimeout(() => setError(null), 5000);
     }
+  };
+
+  const handleSearch = () => {
+    if (!searchPincode.trim()) {
+      setError("Please enter a pincode");
+      setTimeout(() => setError(null), 2000);
+      return;
+    }
+    performSearch(searchPincode);
   };
 
   const getCityWideRiskLevel = (): RiskLevel => {
@@ -204,12 +225,11 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <Navbar alertCount={statistics?.high_risk_areas || 0} />
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold mb-2">Live Risk Dashboard</h1>
             <p className="text-muted-foreground text-lg">
-              Real-time monitoring • Updated: {statistics?.date}
+              Real-time monitoring • Last updated: {statistics?.date}
             </p>
           </div>
           <Button
@@ -221,11 +241,10 @@ const Dashboard = () => {
             <RefreshCw
               className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
             />
-            Refresh
+            Refresh Data
           </Button>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertTriangle className="h-4 w-4" />
@@ -233,117 +252,126 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="max-w-md">
-            <label className="text-sm font-medium mb-2 block">
-              Search by Pincode
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
-                <Input
-                  placeholder="Enter pincode (e.g., 411001)"
-                  className="pl-12 h-12"
-                  value={searchPincode}
-                  onChange={(e) => setSearchPincode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSearch();
-                    }
-                  }}
-                  type="text"
-                />
-              </div>
-              <Button
-                onClick={handleSearch}
-                size="lg"
-                disabled={!searchPincode.trim()}
-              >
-                Search
-              </Button>
-            </div>
-            {riskMap.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Available pincodes:{" "}
-                {riskMap
-                  .slice(0, 5)
-                  .map((z) => z.pincode)
-                  .join(", ")}
-                {riskMap.length > 5 && ` and ${riskMap.length - 5} more...`}
-              </p>
-            )}
-          </div>
-        </div>
+        {searchSuccess && selectedZone && (
+          <Alert className="mb-6 bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              Found Pincode {selectedZone.pincode} - Risk Level:{" "}
+              <strong>{selectedZone.risk_label}</strong>
+            </AlertDescription>
+          </Alert>
+        )}
 
-        {/* Stats Cards */}
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="max-w-2xl">
+              <label className="text-sm font-medium mb-2 block">
+                Search by Pincode
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                  <Input
+                    placeholder="Enter 6-digit pincode (e.g., 411001)"
+                    className="pl-12 h-12"
+                    value={searchPincode}
+                    onChange={(e) => setSearchPincode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSearch();
+                      }
+                    }}
+                    type="text"
+                    maxLength={6}
+                  />
+                </div>
+                <Button
+                  onClick={handleSearch}
+                  size="lg"
+                  disabled={!searchPincode.trim()}
+                  className="px-8"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
+              </div>
+              {riskMap.length > 0 && (
+                <div className="mt-3 text-xs text-muted-foreground"></div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {statistics && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <DataCard
               title="Average Temperature"
               value={formatTemperature(statistics.average_temperature)}
               icon={Thermometer}
-              description="Across all areas"
+              description="Across all monitored areas"
               variant={
                 parseFloat(statistics.average_temperature) > 35
                   ? "warning"
                   : "default"
               }
               trend="up"
-              trendValue="+2.3°C"
+              trendValue="+2.3°C from yesterday"
             />
             <DataCard
               title="Average Humidity"
               value={formatHumidity(statistics.average_humidity)}
               icon={Droplets}
-              description="Current reading"
+              description="Current humidity level"
             />
             <DataCard
               title="High Risk Areas"
               value={statistics.high_risk_areas}
               icon={AlertTriangle}
-              description={`Out of ${statistics.total_areas} zones`}
+              description={`Out of ${statistics.total_areas} total zones`}
               variant="danger"
             />
             <DataCard
               title="Affected Population"
               value={formatNumber(statistics.affected_population)}
               icon={Users}
-              description="In risk zones"
+              description="People in high-risk zones"
               trend="up"
-              trendValue="+15K"
+              trendValue="+15K from last week"
             />
           </div>
         )}
 
-        {/* City-Wide Alert */}
         {statistics && statistics.high_risk_areas > 0 && (
-          <Card className="mb-8 border-red-500 border-2">
+          <Card className="mb-8 border-red-500 border-2 bg-red-50 dark:bg-red-950">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-red-900 dark:text-red-100">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
-                City-Wide Alert Level
+                City-Wide Heatwave Alert
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4 flex-wrap">
                 <RiskBadge level={getCityWideRiskLevel()} size="lg" />
-                <p className="text-muted-foreground">
-                  <strong>{statistics.high_risk_areas}</strong> zones in high
-                  risk.{" "}
-                  <strong>
-                    {formatNumber(statistics.affected_population)}
-                  </strong>{" "}
-                  people affected. Take immediate precautions.
-                </p>
+                <div className="flex-1">
+                  <p className="text-red-900 dark:text-red-100 font-medium">
+                    <strong>{statistics.high_risk_areas}</strong> zones at high
+                    risk affecting{" "}
+                    <strong>
+                      {formatNumber(statistics.affected_population)}
+                    </strong>{" "}
+                    people.
+                  </p>
+                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                    ⚠️ Take immediate precautions. Stay hydrated and avoid peak
+                    sun hours (11 AM - 4 PM).
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Map and Sidebar Grid */}
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Map Section */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -379,18 +407,29 @@ const Dashboard = () => {
                         center={[zone.latitude, zone.longitude]}
                         radius={8 + zone.risk_level * 2}
                         pathOptions={{
-                          color: "#fff",
+                          color:
+                            selectedZone?.pincode === zone.pincode
+                              ? "#000"
+                              : "#fff",
                           fillColor: zone.color,
-                          fillOpacity: 0.7,
-                          weight: 2,
+                          fillOpacity:
+                            selectedZone?.pincode === zone.pincode ? 1 : 0.7,
+                          weight:
+                            selectedZone?.pincode === zone.pincode ? 3 : 2,
                         }}
                         eventHandlers={{
-                          click: () => setSelectedZone(zone),
+                          click: () => {
+                            setSelectedZone(zone);
+                            setSearchSuccess(true);
+                            setTimeout(() => setSearchSuccess(false), 3000);
+                          },
                           mouseover: (e) => {
                             e.target.setStyle({ fillOpacity: 1 });
                           },
                           mouseout: (e) => {
-                            e.target.setStyle({ fillOpacity: 0.7 });
+                            const opacity =
+                              selectedZone?.pincode === zone.pincode ? 1 : 0.7;
+                            e.target.setStyle({ fillOpacity: opacity });
                           },
                         }}
                       >
@@ -398,53 +437,57 @@ const Dashboard = () => {
                           <div className="text-xs font-medium">
                             <strong>Pincode: {zone.pincode}</strong>
                             <br />
-                            🌡️ {zone.temperature}°C
+                            🌡️ {zone.temperature.toFixed(1)}°C
                             <br />
-                            💧 {zone.humidity}%
+                            💧 {zone.humidity.toFixed(0)}%
                             <br />
                             ⚠️ {zone.risk_label}
                             <br />
-                            👥 {formatNumber(zone.population)}
+                            👥 {formatNumber(zone.population)} people
+                            <br />
+                            👴 {zone.elderly_percent.toFixed(1)}% elderly
                           </div>
                         </Tooltip>
                       </CircleMarker>
                     ))}
                   </MapContainer>
 
-                  {/* Legend */}
                   <div className="absolute bottom-4 left-4 bg-white/95 dark:bg-slate-800/95 px-4 py-3 rounded-lg text-xs border shadow-lg z-[1000]">
                     <h4 className="font-semibold mb-2">Risk Levels</h4>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                        <span>Caution</span>
+                        <span>Caution (Level 0)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-                        <span>Extreme Caution</span>
+                        <span>Extreme Caution (Level 1)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                        <span>Danger</span>
+                        <span>Danger (Level 2)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                        <span>Extreme Danger</span>
+                        <span>Extreme Danger (Level 3)</span>
                       </div>
                     </div>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  💡 Click on any circle to view detailed information for that
+                  area
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
             {selectedZone && (
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Selected Zone</CardTitle>
+                    <CardTitle>Selected Zone Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
@@ -452,14 +495,14 @@ const Dashboard = () => {
                         Pincode {selectedZone.pincode}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {selectedZone.latitude.toFixed(4)},{" "}
+                        📍 {selectedZone.latitude.toFixed(4)},{" "}
                         {selectedZone.longitude.toFixed(4)}
                       </p>
                     </div>
 
                     <div>
                       <p className="text-sm font-medium mb-2">
-                        Current Status:
+                        Current Risk Status:
                       </p>
                       <RiskBadge level={selectedZone.risk_level as RiskLevel} />
                     </div>
@@ -468,13 +511,13 @@ const Dashboard = () => {
                       <div>
                         <p className="text-sm font-medium mb-1">Temperature</p>
                         <span className="text-2xl font-bold">
-                          {selectedZone.temperature}°C
+                          {selectedZone.temperature.toFixed(1)}°C
                         </span>
                       </div>
                       <div>
                         <p className="text-sm font-medium mb-1">Humidity</p>
                         <span className="text-2xl font-bold">
-                          {selectedZone.humidity}%
+                          {selectedZone.humidity.toFixed(0)}%
                         </span>
                       </div>
                     </div>
@@ -499,12 +542,12 @@ const Dashboard = () => {
                 </Card>
 
                 <DataCard
-                  title="Population"
+                  title="Total Population"
                   value={formatNumber(selectedZone.population)}
                   icon={Users}
                   description={`${selectedZone.elderly_percent.toFixed(
                     1
-                  )}% elderly`}
+                  )}% elderly residents`}
                 />
 
                 <DataCard
@@ -516,7 +559,7 @@ const Dashboard = () => {
                     )
                   )}
                   icon={AlertTriangle}
-                  description="Elderly at risk"
+                  description="Elderly residents at high risk"
                   variant={selectedZone.risk_level >= 2 ? "danger" : "default"}
                 />
 
@@ -527,7 +570,7 @@ const Dashboard = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">
-                        7-Day Forecast
+                        7-Day Weather Forecast
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -541,17 +584,22 @@ const Dashboard = () => {
                             >
                               <div className="flex-1">
                                 <p className="text-sm font-medium">
-                                  {new Date(day.date).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      weekday: "short",
-                                      month: "short",
-                                      day: "numeric",
-                                    }
-                                  )}
+                                  {idx === 0
+                                    ? "Today"
+                                    : idx === 1
+                                    ? "Tomorrow"
+                                    : new Date(day.date).toLocaleDateString(
+                                        "en-US",
+                                        {
+                                          weekday: "short",
+                                          month: "short",
+                                          day: "numeric",
+                                        }
+                                      )}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {day.temperature}°C • {day.humidity}%
+                                  🌡️ {day.temperature.toFixed(1)}°C • 💧{" "}
+                                  {day.humidity.toFixed(0)}%
                                 </p>
                               </div>
                               <RiskBadge
@@ -568,7 +616,7 @@ const Dashboard = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">
-                        7-Day Forecast
+                        Loading Forecast...
                       </CardTitle>
                     </CardHeader>
                     <CardContent>

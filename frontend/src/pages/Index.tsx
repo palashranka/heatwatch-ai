@@ -1,15 +1,53 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, CloudRain, Brain, MapPin, Droplets, Sun, Users } from "lucide-react";
+import {
+  Search,
+  CloudRain,
+  Brain,
+  MapPin,
+  Droplets,
+  Sun,
+  Users,
+  AlertCircle,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const Index = () => {
+  const [searchPincode, setSearchPincode] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearch = () => {
+    const pincode = searchPincode.trim();
+
+    if (!pincode) {
+      setSearchError("Please enter a pincode");
+      setTimeout(() => setSearchError(""), 2000);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pincode)) {
+      setSearchError("Please enter a valid 6-digit pincode");
+      setTimeout(() => setSearchError(""), 2000);
+      return;
+    }
+
+    navigate(`/dashboard?search=${pincode}`);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       {/* Hero Section */}
       <section className="relative bg-gradient-hero text-white py-24 px-4">
         <div className="container mx-auto max-w-4xl text-center">
@@ -17,67 +55,102 @@ const Index = () => {
             Real-Time Heatwave Alerts for a Safer Pune
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-white/90">
-            Our AI-powered system predicts high-risk zones to protect our most vulnerable communities.
+            Our AI-powered system predicts high-risk zones to protect our most
+            vulnerable communities.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button size="lg" asChild className="bg-white text-primary hover:bg-white/90 text-lg px-8">
+            <Button
+              size="lg"
+              asChild
+              className="bg-white text-primary hover:bg-white/90 text-lg px-8"
+            >
               <Link to="/dashboard">View Live Risk Map</Link>
             </Button>
           </div>
-          
+
           {/* Search Bar */}
           <div className="max-w-xl mx-auto">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <Input
-                placeholder="Enter your Pincode or Locality"
-                className="pl-12 h-14 text-lg bg-white"
+                placeholder="Enter your Pincode (e.g., 411001)"
+                className="pl-12 h-14 text-lg bg-white text-foreground"
+                value={searchPincode}
+                onChange={(e) => setSearchPincode(e.target.value)}
+                onKeyDown={handleKeyPress}
               />
+              <Button
+                onClick={handleSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                size="sm"
+              >
+                Search
+              </Button>
             </div>
+            {searchError && (
+              <div className="mt-2 flex items-center gap-2 text-red-200 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                {searchError}
+              </div>
+            )}
+            <p className="mt-3 text-sm text-white/70">
+              Check heatwave risk for your area
+            </p>
           </div>
         </div>
       </section>
-      
+
       {/* How It Works */}
       <section className="py-20 px-4">
         <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">How It Works</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+            How It Works
+          </h2>
           <p className="text-center text-muted-foreground mb-16 text-lg">
-            Our AI system combines multiple data sources to predict heatwave risks in real-time
+            Our AI system combines multiple data sources to predict heatwave
+            risks in real-time
           </p>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="text-center">
+            <Card className="text-center hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <CloudRain className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Analyze Real-Time Data</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  Analyze Real-Time Data
+                </h3>
                 <p className="text-muted-foreground">
-                  We collect and analyze weather, demographic, and health data continuously
+                  We collect and analyze weather, demographic, and health data
+                  continuously
                 </p>
               </CardContent>
             </Card>
-            
-            <Card className="text-center">
+
+            <Card className="text-center hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Brain className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">AI Risk Prediction</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  AI Risk Prediction
+                </h3>
                 <p className="text-muted-foreground">
-                  Our AI model identifies high-risk zones and vulnerable population groups
+                  Our AI model identifies high-risk zones and vulnerable
+                  population groups
                 </p>
               </CardContent>
             </Card>
-            
-            <Card className="text-center">
+
+            <Card className="text-center hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Location-Based Alerts</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  Location-Based Alerts
+                </h3>
                 <p className="text-muted-foreground">
                   Get zone-specific alerts and actionable safety recommendations
                 </p>
@@ -86,47 +159,54 @@ const Index = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Safety Tips Preview */}
       <section className="py-20 px-4 bg-secondary/50">
         <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">Essential Safety Tips</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+            Essential Safety Tips
+          </h2>
           <p className="text-center text-muted-foreground mb-16 text-lg">
             Quick actions to protect yourself and others during extreme heat
           </p>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <Droplets className="h-12 w-12 text-primary mb-4" />
                 <h3 className="text-xl font-semibold mb-3">Stay Hydrated</h3>
                 <p className="text-muted-foreground">
-                  Drink water every 15-20 minutes, even if you don't feel thirsty. Avoid alcohol and caffeine.
+                  Drink water every 15-20 minutes, even if you don't feel
+                  thirsty. Avoid alcohol and caffeine.
                 </p>
               </CardContent>
             </Card>
-            
-            <Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <Sun className="h-12 w-12 text-primary mb-4" />
                 <h3 className="text-xl font-semibold mb-3">Avoid Direct Sun</h3>
                 <p className="text-muted-foreground">
-                  Stay indoors during peak hours (11 AM - 4 PM). Use umbrellas, hats, and light-colored clothing.
+                  Stay indoors during peak hours (11 AM - 4 PM). Use umbrellas,
+                  hats, and light-colored clothing.
                 </p>
               </CardContent>
             </Card>
-            
-            <Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
               <CardContent className="pt-8">
                 <Users className="h-12 w-12 text-primary mb-4" />
-                <h3 className="text-xl font-semibold mb-3">Check on Neighbors</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  Check on Neighbors
+                </h3>
                 <p className="text-muted-foreground">
-                  Regularly check on elderly family members, neighbors, and those living alone.
+                  Regularly check on elderly family members, neighbors, and
+                  those living alone.
                 </p>
               </CardContent>
             </Card>
           </div>
-          
+
           <div className="text-center mt-12">
             <Button asChild size="lg">
               <Link to="/safety">View All Safety Guidelines</Link>
@@ -134,7 +214,7 @@ const Index = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Footer */}
       <footer className="bg-foreground text-white py-12 px-4">
         <div className="container mx-auto max-w-6xl text-center">
